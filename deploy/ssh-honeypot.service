@@ -1,0 +1,93 @@
+# systemd unit for the SSH honeypot (non-Docker install, see deploy/install.sh
+# and DEPLOY.md). It is written for a VPS that also runs a production website
+# and mail, so the process is boxed in as tightly as systemd allows:
+#
+#   - dedicated system user without a shell, no capabilities at all
+#     (so it could not bind port 22 even if misconfigured)
+#   - may bind only TCP port 2222 (SocketBindAllow); change both if you change the port
+#   - writes only /var/lib/ssh-honeypot (database, host keys) and
+#     /var/log/ssh-honeypot (auth.log); the rest of the filesystem is read-only
+#   - production secrets (web roots, TLS keys, mail, databases, sshd config) are
+#     made invisible to it with InaccessiblePaths=
+#   - hard CPU / memory / task limits so a flood cannot starve the website
+#
+# Outbound traffic: the honeypot itself never connects anywhere. The only
+# outbound connection the code can make is the optional Telegram notification
+# (HTTPS to api.telegram.org). systemd cannot express "accept inbound from
+# anyone, but allow no new outbound" (IPAddressDeny= filters both directions by
+# remote address), so egress filtering is left to the host firewall. DEPLOY.md
+# shows an optional owner-match rule; install.sh never touches the firewall.
+
+[Unit]
+Description=ssh-honeypot (low-interaction SSH honeypot)
+Documentation=file:///opt/ssh-honeypot/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sshhoneypot
+Group=sshhoneypot
+WorkingDirectory=/var/lib/ssh-honeypot
+Environment=HONEYPOT_CONFIG=/etc/ssh-honeypot/config.yml
+Environment=PYTHONDONTWRITEBYTECODE=1
+EnvironmentFile=-/etc/ssh-honeypot/env
+ExecStart=/opt/ssh-honeypot/venv/bin/honeypot run
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+
+# Resource limits: the website and mail always win.
+Nice=10
+CPUQuota=25%
+MemoryHigh=200M
+MemoryMax=256M
+MemorySwapMax=0
+TasksMax=32
+LimitNOFILE=1024
+
+# Writable locations (created and owned by systemd)
+StateDirectory=ssh-honeypot
+StateDirectoryMode=0750
+LogsDirectory=ssh-honeypot
+LogsDirectoryMode=0750
+UMask=0027
+
+# Sandboxing
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateIPC=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+RemoveIPC=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+# AF_UNIX is needed by asyncio's internal socketpair; no raw or netlink sockets.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SocketBindAllow=tcp:2222
+SocketBindDeny=any
+ReadOnlyPaths=/opt/ssh-honeypot /etc/ssh-honeypot
+InaccessiblePaths=-/etc/ssh -/etc/ssl/private -/etc/letsencrypt -/etc/nginx -/etc/apache2
+InaccessiblePaths=-/var/www -/srv -/var/mail -/var/vmail -/var/spool/mail -/var/spool/postfix
+InaccessiblePaths=-/etc/postfix -/etc/dovecot -/etc/opendkim -/etc/mysql -/var/lib/mysql
+InaccessiblePaths=-/var/lib/postgresql -/etc/mini-siem -/var/lib/mini-siem -/var/backups
+
+[Install]
+WantedBy=multi-user.target

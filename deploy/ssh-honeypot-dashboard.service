@@ -1,0 +1,71 @@
+# Optional read-only dashboard for ssh-honeypot. A separate process, so the
+# internet-facing SSH service contains no web server at all.
+#
+#   - listens on 127.0.0.1:8081 only (reach it through an SSH tunnel)
+#   - IPAddressDeny=any + IPAddressAllow=localhost: even if the config is changed
+#     to 0.0.0.0, the kernel drops every packet that is not from this machine
+#   - may bind only TCP port 8081; opens the database read-only
+#
+# Enable with: sudo systemctl enable --now ssh-honeypot-dashboard
+
+[Unit]
+Description=ssh-honeypot dashboard (read-only, localhost)
+Documentation=file:///opt/ssh-honeypot/README.md
+After=ssh-honeypot.service
+
+[Service]
+Type=simple
+User=sshhoneypot
+Group=sshhoneypot
+WorkingDirectory=/var/lib/ssh-honeypot
+Environment=HONEYPOT_CONFIG=/etc/ssh-honeypot/config.yml
+Environment=PYTHONDONTWRITEBYTECODE=1
+EnvironmentFile=-/etc/ssh-honeypot/env
+ExecStart=/opt/ssh-honeypot/venv/bin/honeypot dashboard
+Restart=on-failure
+RestartSec=5
+
+Nice=15
+CPUQuota=20%
+MemoryMax=192M
+TasksMax=32
+
+# SQLite readers of a WAL database need write access to the -shm file, so the
+# state directory stays writable; the application itself opens it read-only.
+StateDirectory=ssh-honeypot
+StateDirectoryMode=0750
+UMask=0027
+
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateIPC=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+IPAddressDeny=any
+IPAddressAllow=localhost
+SocketBindAllow=tcp:8081
+SocketBindDeny=any
+ReadOnlyPaths=/opt/ssh-honeypot /etc/ssh-honeypot
+
+[Install]
+WantedBy=multi-user.target

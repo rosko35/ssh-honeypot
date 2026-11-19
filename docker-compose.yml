@@ -1,0 +1,79 @@
+# Docker alternative to the systemd install. See DEPLOY.md.
+#
+# What these containers can and cannot do on the host:
+#   - non-root user, all capabilities dropped, no privilege escalation,
+#     read-only root filesystem, CPU / memory / PID limits
+#   - the honeypot writes only to its named volume (database, host keys, auth.log)
+#   - no host networking, no access to the Docker socket or host directories
+#   - the dashboard is an optional profile and is published on 127.0.0.1 only
+#
+# Docker publishes ports with its own iptables rules, which bypass ufw. That is
+# intended for 2222 here, but it means `ufw status` will not show this port.
+
+services:
+  honeypot:
+    build: .
+    image: ssh-honeypot:latest
+    container_name: ssh-honeypot
+    restart: unless-stopped
+    command: ["run"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      HONEYPOT_CONFIG: /app/config.yml
+    ports:
+      - "2222:2222"
+    volumes:
+      - ./config.yml:/app/config.yml:ro
+      - ./geoip:/geoip:ro                  # optional GeoLite2-Country.mmdb (set geoip.database: /geoip/...)
+      - honeypot-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp:size=8m
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    memswap_limit: 256m
+    cpus: 0.25
+    pids_limit: 32
+    ulimits:
+      nofile: {soft: 1024, hard: 1024}
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  dashboard:
+    profiles: ["dashboard"]               # docker compose --profile dashboard up -d
+    image: ssh-honeypot:latest
+    container_name: ssh-honeypot-dashboard
+    restart: unless-stopped
+    command: ["dashboard"]
+    depends_on: [honeypot]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      HONEYPOT_CONFIG: /app/config.yml
+      HONEYPOT_DASHBOARD_HOST: 0.0.0.0      # inside the container; published on host loopback below
+      HONEYPOT_DASHBOARD_PORT: 8081
+    ports:
+      - "127.0.0.1:8081:8081"
+    volumes:
+      - ./config.yml:/app/config.yml:ro
+      - honeypot-data:/data                # SQLite needs the -shm file; the app opens the DB read-only
+    read_only: true
+    tmpfs:
+      - /tmp:size=8m
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 192m
+    cpus: 0.2
+    pids_limit: 32
+
+volumes:
+  honeypot-data:
