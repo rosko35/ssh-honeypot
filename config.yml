@@ -1,0 +1,67 @@
+# ssh-honeypot configuration.
+# Relative paths are resolved against the directory of this file.
+# Secrets (Telegram, dashboard credentials) live in the environment / .env, never here.
+
+listen:
+  # 127.0.0.1 so that running from a checkout exposes nothing by accident.
+  # deploy/install.sh writes 0.0.0.0 into /etc/ssh-honeypot/config.yml, and the
+  # Docker image sets HONEYPOT_LISTEN_HOST=0.0.0.0 inside the container.
+  host: 127.0.0.1
+  port: 2222              # unprivileged on purpose: the process needs no capabilities
+
+# What attackers see. The banner is the part after "SSH-2.0-".
+banner: "OpenSSH_9.6p1 Ubuntu-3ubuntu13.5"
+hostname: web-prod-01     # hostname inside the fake shell
+host_key_types: [ssh-ed25519, ecdsa-sha2-nistp256, ssh-rsa]
+
+# Storage. Host keys are generated into state_dir on first start (never commit them).
+database: data/honeypot.db
+state_dir: data
+
+# sshd-style log for mini-siem / fail2ban / grep. Passwords are never written here.
+auth_log: data/auth.log
+auth_log_timestamps: rfc3339   # or "classic" (Nov 19 10:15:01)
+log_hostname: honeypot         # keep it different from the real hostname
+# Optional JSON-lines event log (every auth attempt, command, request).
+json_log: null
+
+# Sessions older than this are deleted (hourly). Attacker IPs and the
+# passwords they type can be personal data: keep this as short as is useful.
+retention_days: 90
+
+auth:
+  # reject          every login fails - pure credential harvesting (default, safest)
+  # after_attempts  the Nth password attempt from one IP succeeds and opens the fake shell
+  # credentials     only the listed username/password pairs succeed ("*" = anything)
+  policy: reject
+  accept_after: 3
+  credentials: []
+  #  - {username: root, password: "123456"}
+  #  - {username: admin, password: admin}
+  valid_users: [root, ubuntu]   # others get sshd's "Invalid user" line in auth.log
+  max_attempts_per_connection: 6
+  failure_delay: 1.0            # seconds, like sshd's delay after a failed password
+
+limits:
+  max_connections: 100          # all clients together
+  max_connections_per_ip: 5
+  login_timeout: 30             # seconds to finish authentication
+  idle_timeout: 120             # seconds without input
+  max_session_duration: 600     # hard cap per connection
+  max_input_bytes: 65536        # per connection, after login
+  max_commands: 200             # per connection
+  max_line_length: 4096
+  max_channels: 4               # session channels per connection
+
+geoip:
+  # MaxMind GeoLite2-Country/City or DB-IP "IP to Country Lite" (.mmdb).
+  # Not bundled. Missing file = countries shown as unknown.
+  database: null
+
+dashboard:
+  host: 127.0.0.1
+  port: 8081
+
+telegram:
+  batch_interval: 60            # seconds; at most one message per interval
+  max_sessions_per_message: 10

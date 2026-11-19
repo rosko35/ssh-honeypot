@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Secrets
+.env
+
+# Runtime data (database, host keys, logs)
+data/
+state/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+*.log
+*.jsonl
+logs/
+ssh_host_*_key
+ssh_host_*_key.pub
+*.key
+*.pem
+
+# GeoIP databases (licensed, never committed)
+*.mmdb
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
