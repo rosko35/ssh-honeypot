@@ -77,7 +77,6 @@ LockPersonality=yes
 RemoveIPC=yes
 SystemCallArchitectures=native
 SystemCallFilter=@system-service
-SystemCallFilter=~@privileged @resources
 SystemCallErrorNumber=EPERM
 # AF_UNIX is needed by asyncio's internal socketpair; no raw or netlink sockets.
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
