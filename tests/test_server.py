@@ -75,6 +75,15 @@ async def test_banner_and_rejected_password_is_recorded(start_honeypot):
     assert hp.notifier.events == []
 
 
+async def test_scan_only_connection_is_fingerprinted(start_honeypot):
+    """Scanners that only fetch the host key never authenticate; HASSH is still recorded."""
+    hp = await start_honeypot()
+    key = await asyncssh.get_server_host_key("127.0.0.1", hp.port)
+    assert key is not None and key.get_algorithm() == "ssh-ed25519"
+    s = await eventually(lambda: hp.rows("SELECT * FROM sessions WHERE ended IS NOT NULL"))
+    assert s[0]["hassh"] and s[0]["auth_attempts"] == 0
+
+
 async def test_public_key_offer_is_recorded_and_rejected(start_honeypot):
     hp = await start_honeypot(
         auth={"policy": "credentials", "credentials": [{"username": "*", "password": "*"}]}

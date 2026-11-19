@@ -443,6 +443,9 @@ abuse reports).
   substitution or globbing, no stdin interaction, a fixed fake filesystem.
   Bots that check carefully will notice.
 - Only SSH. No Telnet, no other protocols.
+- asyncssh normalises passwords with SASLprep and drops the connection when
+  a password is not valid UTF-8 or contains forbidden characters, so such
+  attempts are not recorded, and recorded passwords are the normalised form.
 - HASSH and negotiated algorithms come from private asyncssh attributes;
   an asyncssh upgrade may break them (they then become empty, and a test
   fails).

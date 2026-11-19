@@ -257,6 +257,7 @@ class HoneypotServer(asyncssh.SSHServer):
         self.hp.connections.discard(self)
         if self._watchdog is not None:
             self._watchdog.cancel()
+        self._fingerprint()  # scanners that only grab the host key never reach begin_auth
         if not self._closing and exc is not None and not isinstance(exc, asyncssh.ConnectionLost):
             self.end_reason = f"error: {type(exc).__name__}"
         self.rec.session_closed(

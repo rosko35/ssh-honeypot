@@ -467,6 +467,10 @@ kısıtlar veya kötüye kullanım bildirimleriyle ilgilenmeni ister).
   koyma (command substitution) veya glob yok, stdin etkileşimi yok, sabit
   bir sahte dosya sistemi var. Dikkatli kontrol eden botlar fark eder.
 - Yalnızca SSH. Telnet veya başka protokol yok.
+- asyncssh parolaları SASLprep ile normalleştirir ve geçerli UTF-8 olmayan
+  ya da yasaklı karakterler içeren bir parola geldiğinde bağlantıyı keser;
+  bu yüzden bu tür denemeler kaydedilmez ve kaydedilen parolalar
+  normalleştirilmiş haldedir.
 - HASSH ve anlaşılan algoritmalar asyncssh'in özel (private) alanlarından
   okunur; bir asyncssh güncellemesi bunları bozabilir (o zaman boş kalırlar
   ve bir test başarısız olur).
