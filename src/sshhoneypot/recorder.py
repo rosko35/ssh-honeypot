@@ -153,10 +153,9 @@ class Recorder:
                     "auth log", self.auth_log.accepted, ts, pid, method, username, src_ip, src_port
                 )
             else:
-                key_info = f"{key_type} {key_fingerprint}" if key_fingerprint else None
                 self._safe(
                     "auth log", self.auth_log.failed, ts, pid, method, username, valid_user,
-                    src_ip, src_port, key_info,
+                    src_ip, src_port, key_type, key_fingerprint,
                 )  # fmt: skip
         self._json(
             "auth.success" if success else "auth.failed",

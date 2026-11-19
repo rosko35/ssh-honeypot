@@ -44,7 +44,9 @@ def test_lines_parse_as_sshd_events(log):
     log.invalid_user(TS, 4242, "admin", "198.51.100.7", 50022)
     log.failed(TS, 4242, "password", "admin", False, "198.51.100.7", 50022)
     log.failed(TS + 1, 4243, "password", "root", True, "2001:db8::7", 40000)
-    log.failed(TS + 2, 4244, "publickey", "git", True, "203.0.113.5", 1234, "ED25519 SHA256:abc")
+    log.failed(
+        TS + 2, 4244, "publickey", "git", True, "203.0.113.5", 1234, "ssh-ed25519", "SHA256:abc"
+    )
     log.accepted(TS + 3, 4245, "password", "root", "203.0.113.9", 5555)
     log.closed_preauth(TS + 4, 4246, "203.0.113.10", 6666)
     events = parse_all(log.path)
@@ -65,6 +67,7 @@ def test_lines_parse_as_sshd_events(log):
         False,
     )
     assert key.fields["method"] == "publickey"
+    assert key.raw.endswith("port 1234 ssh2: ED25519 SHA256:abc")
     assert (ok.user, ok.src_ip, ok.fields["method"]) == ("root", "203.0.113.9", "password")
     assert {e.host for e in events} == {"honeypot"}  # distinct hostname
     assert events[0].ts.replace(tzinfo=None) == datetime(2026, 11, 19, 10, 15, 1)

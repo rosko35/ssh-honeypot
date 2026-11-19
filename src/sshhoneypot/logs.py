@@ -39,6 +39,22 @@ def sanitize(value: str, limit: int = 128) -> str:
     return "".join(out)
 
 
+def _key_label(algorithm: str) -> str:
+    """ssh-ed25519 -> ED25519, rsa-sha2-512 -> RSA, ecdsa-sha2-nistp256 -> ECDSA (sshd's labels)."""
+    for prefix, label in (
+        ("ssh-ed25519", "ED25519"),
+        ("sk-ssh-ed25519", "ED25519-SK"),
+        ("ecdsa-", "ECDSA"),
+        ("sk-ecdsa-", "ECDSA-SK"),
+        ("ssh-rsa", "RSA"),
+        ("rsa-sha2-", "RSA"),
+        ("ssh-dss", "DSA"),
+    ):
+        if algorithm.startswith(prefix):
+            return label
+    return algorithm.upper() or "UNKNOWN"
+
+
 def _rotating_logger(name: str, path: str, max_bytes: int, backups: int) -> logging.Logger:
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     logger = logging.getLogger(f"sshhoneypot.file.{name}.{path}")
@@ -102,10 +118,13 @@ class AuthLog:
         valid: bool,
         ip: str,
         port: int,
-        key_info: str | None = None,
+        key_type: str | None = None,
+        key_fingerprint: str | None = None,
     ) -> None:
         who = sanitize(user) if valid else f"invalid user {sanitize(user)}"
-        extra = f": {sanitize(key_info, 200)}" if key_info else ""
+        extra = ""
+        if key_fingerprint:  # sshd style: "ssh2: ED25519 SHA256:..."
+            extra = f": {sanitize(_key_label(key_type or ''))} {sanitize(key_fingerprint, 200)}"
         self.write(ts, pid, f"Failed {method} for {who} from {ip} port {port} ssh2{extra}")
 
     def accepted(self, ts: float, pid: int, method: str, user: str, ip: str, port: int) -> None:
